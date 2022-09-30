@@ -2,6 +2,18 @@ require 'digest'
 require 'httparty'
 
 
+class HTTPartyWrapper
+    include HTTParty
+
+    query_string_normalizer proc {|query|
+        query.map do |key, value|
+            value.kind_of?(Array) ?
+                value.map {|v| "#{key}=#{v}"} : "#{key}=#{value}"
+        end.join('&')
+    }
+end
+
+
 class APIClient
 
     # A client for the CareHQ API.
@@ -14,8 +26,8 @@ class APIClient
         account_id,
         api_key,
         api_secret,
-        api_base_url='https://api.carehq.co.uk',
-        timeout=nil
+        api_base_url: 'https://api.carehq.co.uk',
+        timeout: nil
     )
 
         # The Id of the CareHQ account the API key relates to
@@ -49,7 +61,7 @@ class APIClient
         @rate_limit_remaining = nil
     end
 
-    def request(method, path, params=nil, data=nil)
+    def request(method, path, params: nil, data: nil)
         # Call the API
 
         # Filter out params/data set to `nil` and ensure all arguments are
@@ -70,7 +82,7 @@ class APIClient
         (signature_data or {}).each_pair do |key, value|
             signature_values.push(key)
             if value.kind_of?(Array)
-            signature_values.concat(value)
+                signature_values.concat(value)
             else
                 signature_values.push(value)
             end
@@ -97,7 +109,7 @@ class APIClient
 
         # Make the request
         url = [@api_base_url, '/v1/', path].join ''
-        response = HTTParty.method(method.downcase).call(
+        response = HTTPartyWrapper.method(method.downcase).call(
             url,
             {
                 :query => params,
@@ -125,4 +137,4 @@ class APIClient
 
 end
 
-require './carehq/exceptions'
+require 'carehq/exceptions'

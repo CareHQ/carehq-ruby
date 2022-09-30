@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
   s.authors     = ["Anthony Blackshaw"]
   s.email       = "ant@crmhq.co.uk"
   s.files       = ["lib/carehq.rb", "lib/carehq/exceptions.rb"]
-  a.add_dependency 'httparty', '~> 0.20.0'
+  s.add_dependency 'httparty', '~> 0.20.0'
   s.homepage    = "https://github.com/CareHQ/carehq-ruby"
   s.license     = "MIT"
 end
