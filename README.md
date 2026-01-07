@@ -41,3 +41,7 @@ users = api_client.request(
 )
 
 ```
+
+# Changelog
+
+- 2025-01-07: Updated to use the new 'CareHQ-Signature-Version 2.0' hashing mechanism (SHA256 with a nonce).

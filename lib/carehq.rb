@@ -1,6 +1,9 @@
 require 'digest'
 require 'httparty'
+require 'securerandom'
+require 'openssl'
 
+require 'carehq/exceptions'
 
 class HTTPartyWrapper
     include HTTParty
@@ -75,36 +78,31 @@ class APIClient
             data.delete_if {|k, v| v.nil?}
         end
 
-        # Build the signature
-        signature_data = method.downcase == 'get' ? params : data
+        # Build the signature (v2)
+        timestamp_str = Time.now.to_i.to_s
+        nonce = SecureRandom.urlsafe_base64(16)
 
-        signature_values = []
-        (signature_data or {}).each_pair do |key, value|
-            signature_values.push(key)
-            if value.kind_of?(Array)
-                signature_values.concat(value)
-            else
-                signature_values.push(value)
-            end
-        end
+        canonical = _canonical_params_str(method.upcase == 'GET' ? params : data)
 
-        signature_body = signature_values.join ''
+        string_to_sign = [
+            timestamp_str,
+            nonce,
+            method.upcase,
+            "/v1/#{path}",
+            canonical
+        ].join("\n")
 
-        timestamp = Time.now.to_f.to_s
-
-        signature_hash = Digest::SHA1.new
-        signature_hash.update timestamp
-        signature_hash.update signature_body
-        signature_hash.update @api_secret
-        signature = signature_hash.hexdigest
+        signature = _compute_signature(@api_secret, string_to_sign)
 
         # Build the headers
         headers = {
             'Accept' => 'application/json',
             'X-CareHQ-AccountId' => @account_id,
             'X-CareHQ-APIKey' => @api_key,
+            'X-CareHQ-Nonce' => nonce,
             'X-CareHQ-Signature' => signature,
-            'X-CareHQ-Timestamp' => timestamp
+            'X-CareHQ-Signature-Version' => '2.0',
+            'X-CareHQ-Timestamp' => timestamp_str
         }
 
         # Make the request
@@ -135,6 +133,24 @@ class APIClient
 
     end
 
-end
+    private
 
-require 'carehq/exceptions'
+    def _canonical_params_str(params)
+        params ||= {}
+
+        parts = []
+        params.keys.sort.each do |key|
+            values = params[key]
+            values = [values] unless values.is_a?(Array) || values.is_a?(Set)
+            values.sort.each do |value|
+                parts << "#{key}=#{value}"
+            end
+        end
+
+        parts.join("\n")
+    end
+
+    def _compute_signature(secret, msg)
+        OpenSSL::HMAC.hexdigest('sha256', secret.to_s, msg.to_s)
+    end
+end
