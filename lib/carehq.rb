@@ -67,9 +67,7 @@ class APIClient
     def request(method, path, params: nil, data: nil)
         # Call the API
 
-        # Filter out params/data set to `nil` and ensure all arguments are
-        # converted to strings.
-
+        # Filter out params/data set to `nil` 
         if params
             params.delete_if {|k, v| v.nil?}
         end
@@ -78,19 +76,29 @@ class APIClient
             data.delete_if {|k, v| v.nil?}
         end
 
+        # Ensure all params/data values are strings
+        if params
+            params.each do |k, v|
+                params[k] = _ensure_string(v)
+            end
+        end
+
+        if data
+            data.each do |k, v|
+                data[k] = _ensure_string(v)
+            end
+        end
+
         # Build the signature (v2)
         timestamp_str = Time.now.to_i.to_s
         nonce = SecureRandom.urlsafe_base64(16)
-
-        canonical = _canonical_params_str(method.upcase == 'GET' ? params : data)
-
         string_to_sign = [
             timestamp_str,
             nonce,
             method.upcase,
             "/v1/#{path}",
-            canonical
-        ].join("\n")
+            _canonical_params_str(method.upcase == 'GET' ? params : data)
+        ].join("\n").encode('utf-8')
 
         signature = _compute_signature(@api_secret, string_to_sign)
 
@@ -135,7 +143,20 @@ class APIClient
 
     private
 
+    def _ensure_string(val)
+        # Ensure values that will be converted to a form-encoded value are a
+        # string (or list of strings).
+
+        if val.is_a?(Array) || val.is_a?(Set)
+            return val.map {|v| v.to_s}
+        else
+            return val.to_s
+        end
+    end
+
     def _canonical_params_str(params)
+        # Build a canonical string of params used for signing.
+        # Sort keys, sort values for each key, and join as "key=value" lines.
         params ||= {}
 
         parts = []
