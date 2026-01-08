@@ -43,7 +43,8 @@ class APIClient
         @api_secret = api_secret
 
         # The base URL to use when calling the API
-        @api_base_url = api_base_url
+        # Trailing slashes are removed.
+        @api_base_url = api_base_url.chomp('/')
 
         # The period of time before requests to the API should timeout
         @timeout = timeout
@@ -88,6 +89,9 @@ class APIClient
                 data[k] = _ensure_string(v)
             end
         end
+
+        # Ensure path does not start with a slash
+        path = path.reverse.chomp('/').reverse
 
         # Build the signature (v2)
         timestamp_str = Time.now.to_i.to_s
